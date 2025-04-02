@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Detection from Text</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #f59e0b;
+            --text: #334155;
+            --bg: #f8fafc;
+            --white: #ffffff;
+            --gray-light: #e2e8f0;
+            --gray: #94a3b8;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: var(--white);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+
+        h1 {
+            color: var(--primary-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .card {
+            background-color: var(--white);
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .input-area {
+            display: flex;
+            flex-direction: column;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            border: 1px solid var(--gray-light);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            resize: vertical;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: var(--white);
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: 600;
+            align-self: flex-start;
+        }
+
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .results {
+            display: none;
+            margin-top: 2rem;
+        }
+
+        .chart-container {
+            position: relative;
+            margin-bottom: 2rem;
+            height: 300px;
+        }
+
+        .emotion-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .emotion-card {
+            background-color: var(--white);
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .emotion-card h3 {
+            margin-bottom: 0.5rem;
+            color: var(--primary-dark);
+        }
+
+        .emotion-card .percentage {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--secondary);
+        }
+
+        .examples {
+            margin-top: 2rem;
+        }
+
+        .examples h3 {
+            margin-bottom: 1rem;
+        }
+
+        .example-btn {
+            background-color: var(--gray-light);
+            color: var(--text);
+            padding: 0.5rem 1rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+        }
+
+        .example-btn:hover {
+            background-color: var(--gray);
+            color: var(--white);
+        }
+
+        .history {
+            margin-top: 2rem;
+        }
+
+        .history-item {
+            padding: 1rem;
+            border-left: 4px solid var(--primary);
+            background-color: var(--gray-light);
+            margin-bottom: 1rem;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+
+        .history-text {
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+
+        .history-result {
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .emotion-details {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        .loading-spinner {
+            border: 4px solid var(--gray-light);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--gray);
+        }
+
+        .empty-state img {
+            max-width: 200px;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Emotion Detection from Text</h1>
+        <p>Analyze the emotions in your text using our advanced sentiment analyzer</p>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <div class="input-area">
+                <h2>Enter Your Text</h2>
+                <textarea id="text-input" placeholder="Type or paste your text here..."></textarea>
+                <button id="analyze-btn">Analyze Emotions</button>
+            </div>
+
+            <div class="examples">
+                <h3>Try These Examples:</h3>
+                <button class="example-btn" data-text="I am so happy today! Everything is going great and I can't stop smiling.">Happy</button>
+                <button class="example-btn" data-text="I'm feeling really sad and disappointed after what happened yesterday.">Sad</button>
+                <button class="example-btn" data-text="This is outrageous! I can't believe they would do something so unfair.">Angry</button>
+                <button class="example-btn" data-text="I'm really worried about the upcoming presentation. What if I mess up?">Anxious</button>
+                <button class="example-btn" data-text="I'm so excited about our vacation next week! I've been looking forward to it for months.">Excited</button>
+            </div>
+
+            <div class="loading">
+                <div class="loading-spinner"></div>
+            </div>
+
+            <div class="results">
+                <h2>Emotion Analysis Results</h2>
+                <div class="chart-container">
+                    <canvas id="emotions-chart"></canvas>
+                </div>
+
+                <div class="emotion-details" id="emotion-details">
+                    <!-- Emotion cards will be added here dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <div class="card history">
+            <h2>Your Analysis History</h2>
+            <div id="history-list">
+                <div class="empty-state">
+                    <img src="/api/placeholder/200/150" alt="No history">
+                    <p>Your analysis history will appear here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Emotion detection model (simplified for demo)
+        // In a real application, you would use a proper NLP library or API
+        const emotionDetector = {
+            emotions: ['Happy', 'Sad', 'Angry', 'Surprised', 'Fearful', 'Disgusted', 'Neutral'],
+            
+            // Keywords associated with each emotion
+            keywords: {
+                'Happy': ['happy', 'joy', 'delighted', 'pleased', 'glad', 'cheerful', 'smiling', 'excited', 'fantastic', 'wonderful', 'great', 'good', 'love', 'like', 'enjoy'],
+                'Sad': ['sad', 'unhappy', 'depressed', 'miserable', 'gloomy', 'disappointed', 'unfortunate', 'heartbroken', 'grief', 'sorrow', 'cry', 'tears', 'miss', 'regret'],
+                'Angry': ['angry', 'mad', 'furious', 'outraged', 'annoyed', 'irritated', 'frustrated', 'hate', 'resent', 'temper', 'rage', 'hostile', 'upset', 'bitter'],
+                'Surprised': ['surprised', 'shocked', 'astonished', 'amazed', 'stunned', 'unexpected', 'startled', 'wow', 'whoa', 'unbelievable', 'incredible'],
+                'Fearful': ['afraid', 'scared', 'frightened', 'terrified', 'anxious', 'worried', 'nervous', 'panic', 'terror', 'horror', 'dread', 'concern'],
+                'Disgusted': ['disgusted', 'gross', 'revolting', 'nasty', 'yuck', 'repulsed', 'distasteful', 'offensive', 'unpleasant', 'sickening'],
+                'Neutral': ['okay', 'fine', 'normal', 'usual', 'regular', 'average', 'common', 'typical', 'routine', 'neither', 'indifferent']
+            },
+            
+            // Emotion detection function
+            analyze: function(text) {
+                const results = {};
+                let totalScore = 0;
+                
+                // Initialize all emotions with a small baseline score
+                this.emotions.forEach(emotion => {
+                    results[emotion] = 0.05;
+                    totalScore += 0.05;
+                });
+                
+                // Convert text to lowercase and split into words
+                const words = text.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/);
+                
+                // Count keyword matches
+                words.forEach(word => {
+                    this.emotions.forEach(emotion => {
+                        if (this.keywords[emotion].includes(word)) {
+                            results[emotion] += 1;
+                            totalScore += 1;
+                        } else {
+                            // Check for partial matches
+                            this.keywords[emotion].forEach(keyword => {
+                                if (word.includes(keyword) || keyword.includes(word)) {
+                                    results[emotion] += 0.5;
+                                    totalScore += 0.5;
+                                }
+                            });
+                        }
+                    });
+                });
+                
+                // Calculate percentages
+                if (totalScore > 0) {
+                    for (const emotion in results) {
+                        results[emotion] = (results[emotion] / totalScore) * 100;
+                    }
+                }
+                
+                // Adjust based on sentence features
+                if (text.includes('!')) {
+                    results['Happy'] *= 1.2;
+                    results['Angry'] *= 1.2;
+                    results['Surprised'] *= 1.2;
+                }
+                
+                if (text.includes('?')) {
+                    results['Surprised'] *= 1.1;
+                    results['Fearful'] *= 1.1;
+                }
+                
+                // Normalize to 100%
+                totalScore = Object.values(results).reduce((sum, value) => sum + value, 0);
+                for (const emotion in results) {
+                    results[emotion] = (results[emotion] / totalScore) * 100;
+                    results[emotion] = Math.round(results[emotion] * 10) / 10; // Round to 1 decimal place
+                }
+                
+                return results;
+            }
+        };
+        
+        // DOM Elements
+        const textInput = document.getElementById('text-input');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const resultsDiv = document.querySelector('.results');
+        const loadingDiv = document.querySelector('.loading');
+        const emotionDetailsDiv = document.getElementById('emotion-details');
+        const historyListDiv = document.getElementById('history-list');
+        const exampleBtns = document.querySelectorAll('.example-btn');
+        
+        // Chart.js setup
+        let emotionsChart;
+        
+        // Colors for each emotion
+        const emotionColors = {
+            'Happy': 'rgba(255, 193, 7, 0.8)',
+            'Sad': 'rgba(13, 110, 253, 0.8)',
+            'Angry': 'rgba(220, 53, 69, 0.8)',
+            'Surprised': 'rgba(111, 66, 193, 0.8)',
+            'Fearful': 'rgba(25, 135, 84, 0.8)',
+            'Disgusted': 'rgba(102, 16, 242, 0.8)',
+            'Neutral': 'rgba(108, 117, 125, 0.8)'
+        };
+        
+        // Analysis history
+        let analysisHistory = [];
+        
+        // Event Listeners
+        analyzeBtn.addEventListener('click', analyzeText);
+        
+        exampleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                textInput.value = btn.getAttribute('data-text');
+                analyzeText();
+            });
+        });
+        
+        // Analyze text function
+        function analyzeText() {
+            const text = textInput.value.trim();
+            
+            if (text === '') {
+                alert('Please enter some text to analyze.');
+                return;
+            }
+            
+            // Show loading spinner
+            loadingDiv.style.display = 'flex';
+            resultsDiv.style.display = 'none';
+            
+            // Simulate API delay
+            setTimeout(() => {
+                const results = emotionDetector.analyze(text);
+                
+                // Update UI with results
+                displayResults(text, results);
+                
+                // Add to history
+                addToHistory(text, results);
+                
+                // Hide loading spinner
+                loadingDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+            }, 1500); // 1.5 seconds delay to simulate processing
+        }
+        
+        // Display results
+        function displayResults(text, results) {
+            // Clear previous emotion details
+            emotionDetailsDiv.innerHTML = '';
+            
+            // Create emotion cards
+            for (const emotion in results) {
+                const card = document.createElement('div');
+                card.className = 'emotion-card';
+                
+                card.innerHTML = `
+                    <h3>${emotion}</h3>
+                    <div class="percentage">${results[emotion].toFixed(1)}%</div>
+                `;
+                
+                emotionDetailsDiv.appendChild(card);
+            }
+            
+            // Update chart
+            updateChart(results);
+        }
+        
+        // Update emotions chart
+        function updateChart(results) {
+            const ctx = document.getElementById('emotions-chart').getContext('2d');
+            
+            // Destroy previous chart if it exists
+            if (emotionsChart) {
+                emotionsChart.destroy();
+            }
+            
+            // Create new chart
+            emotionsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(results),
+                    datasets: [{
+                        label: 'Emotion Intensity (%)',
+                        data: Object.values(results),
+                        backgroundColor: Object.keys(results).map(emotion => emotionColors[emotion]),
+                        borderColor: Object.keys(results).map(emotion => emotionColors[emotion].replace('0.8', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Percentage (%)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Emotions'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Add analysis to history
+        function addToHistory(text, results) {
+            // Add to history array
+            analysisHistory.unshift({
+                text: text,
+                results: results,
+                timestamp: new Date()
+            });
+            
+            // Limit history to 5 items
+            if (analysisHistory.length > 5) {
+                analysisHistory.pop();
+            }
+            
+            // Update history UI
+            updateHistoryUI();
+        }
+        
+        // Update history UI
+        function updateHistoryUI() {
+            // Clear previous history
+            historyListDiv.innerHTML = '';
+            
+            if (analysisHistory.length === 0) {
+                historyListDiv.innerHTML = `
+                    <div class="empty-state">
+                        <img src="/api/placeholder/200/150" alt="No history">
+                        <p>Your analysis history will appear here</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Add history items
+            analysisHistory.forEach(item => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                
+                // Find dominant emotion
+                let dominantEmotion = '';
+                let highestScore = 0;
+                
+                for (const emotion in item.results) {
+                    if (item.results[emotion] > highestScore) {
+                        highestScore = item.results[emotion];
+                        dominantEmotion = emotion;
+                    }
+                }
+                
+                // Format time
+                const time = item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                historyItem.innerHTML = `
+                    <div class="history-text">${item.text.length > 50 ? item.text.substring(0, 50) + '...' : item.text}</div>
+                    <div class="history-result">Dominant emotion: ${dominantEmotion} (${item.results[dominantEmotion].toFixed(1)}%) - ${time}</div>
+                `;
+                
+                historyListDiv.appendChild(historyItem);
+            });
+        }
+    </script>
+</body>
+</html>
